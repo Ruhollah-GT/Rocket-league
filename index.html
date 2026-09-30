@@ -1,0 +1,2355 @@
+```html
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Rocket Arena — 1v1</title>
+<style>
+*{box-sizing:border-box}
+html,body{
+  margin:0;width:100%;height:100%;overflow:hidden;
+  background:#07111c;font-family:Inter,system-ui,Segoe UI,Arial;color:#fff;
+  touch-action:none
+}
+canvas{display:block;width:100vw;height:100vh}
+.ui{position:fixed;inset:0;pointer-events:none}
+.top{
+  position:absolute;left:12px;right:12px;top:12px;
+  display:flex;justify-content:space-between;align-items:flex-start;gap:10px
+}
+.panel{
+  background:#091522d9;border:1px solid #ffffff18;
+  backdrop-filter:blur(10px);box-shadow:0 10px 35px #0006;
+  border-radius:15px
+}
+.brand{padding:9px 13px;font-weight:1000;letter-spacing:.5px}
+.brand small{
+  display:block;color:#7e9bb2;font-size:10px;letter-spacing:1.5px
+}
+.score{display:flex;gap:8px;align-items:center;padding:7px 10px}
+.team{font-weight:1000;font-size:22px}
+.timer{font-size:24px;font-weight:1000;min-width:65px;text-align:center}
+.blue{color:#48c9ff}
+.orange{color:#ff9a42}
+.rankbox{padding:8px 12px;text-align:right}
+.rankname{font-weight:1000}
+.rankpts{font-size:11px;color:#91a7b8}
+.bottom{
+  position:absolute;left:12px;right:12px;bottom:12px;
+  display:flex;justify-content:space-between;align-items:end
+}
+.controls{padding:8px 11px;color:#a9bac7;font-size:12px}
+.boost{padding:9px 12px;min-width:125px}
+.boostbar{
+  height:8px;background:#172b3c;border-radius:99px;
+  overflow:hidden;margin-top:5px
+}
+.boostbar i{
+  display:block;height:100%;width:100%;
+  background:linear-gradient(90deg,#4de1ff,#6c7bff)
+}
+.overlay{
+  position:fixed;inset:0;background:#04101bd9;
+  display:grid;place-items:center;z-index:5
+}
+.card{
+  width:min(620px,calc(100% - 24px));padding:28px;
+  border-radius:24px;background:#0c1a28;
+  border:1px solid #ffffff1c;box-shadow:0 30px 100px #0009;
+  text-align:center
+}
+.card h1{font-size:clamp(34px,8vw,64px);margin:0 0 4px}
+.card h2{margin:0 0 8px}
+.card p{color:#9db0bf;line-height:1.5}
+.mainbtn{
+  border:0;border-radius:14px;padding:14px 26px;
+  background:linear-gradient(135deg,#36c7ff,#716aff);
+  color:white;font-weight:1000;font-size:17px;
+  cursor:pointer;margin:6px
+}
+.secondary{background:#172a3b}
+.rankgrid{
+  display:grid;grid-template-columns:repeat(5,1fr);
+  gap:7px;margin:18px 0
+}
+.r{
+  padding:9px 3px;border-radius:10px;background:#132536;
+  color:#8097a9;font-size:10px;font-weight:900
+}
+.r.active{outline:2px solid #5ddcff;color:#fff}
+.hidden{display:none!important}
+.toast{
+  position:absolute;top:84px;left:50%;
+  transform:translateX(-50%);padding:9px 15px;
+  border-radius:12px;background:#0b1825e8;
+  border:1px solid #ffffff18;font-weight:900;
+  opacity:0;transition:.2s
+}
+.toast.show{opacity:1}
+
+.partyInput{
+  width:100%;
+  padding:13px;
+  border-radius:12px;
+  border:1px solid #ffffff22;
+  background:#08131f;
+  color:#fff;
+  text-align:center;
+  font-size:20px;
+  font-weight:900;
+  letter-spacing:4px;
+}
+
+@media(max-width:700px){
+  .controls{font-size:10px;max-width:230px}
+  .rankbox{font-size:12px}
+  .score{padding:5px}
+  .timer{font-size:20px}
+  .brand{font-size:13px}
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="c"></canvas>
+
+<div class="ui">
+
+  <div class="top">
+
+    <div class="panel brand">
+      🚀 ROCKET ARENA
+      <small>1V1 CAR SOCCER</small>
+    </div>
+
+    <div class="panel score">
+      <span class="team blue" id="us">0</span>
+      <span class="timer" id="time">2:00</span>
+      <span class="team orange" id="them">0</span>
+    </div>
+
+    <div class="panel rankbox">
+      <div class="rankname" id="rank">BRONZE I</div>
+      <div class="rankpts">
+        <span id="rp">0</span> RP
+      </div>
+    </div>
+
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="bottom">
+
+    <div class="panel controls">
+      WASD / pilar = kör • SPACE = hopp • J = boost • SHIFT = drift<br>
+      Q/E = luftroll • R = reset
+    </div>
+
+    <div class="panel boost">
+      BOOST <b id="boosttxt">100</b>
+      <div class="boostbar">
+        <i id="boostbar"></i>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- HUVUDMENY -->
+
+<div class="overlay" id="menu">
+
+  <div class="card">
+
+    <h1>🚀 ROCKET ARENA</h1>
+
+    <p>
+      Snabba 1v1-matcher med raketbilar,
+      bollfysik, boost, hopp och ranksystem.
+    </p>
+
+    <div class="rankgrid" id="ranks"></div>
+
+    <button class="mainbtn" id="botBtn">
+      🤖 SPELA MOT BOT
+    </button>
+
+    <button class="mainbtn" id="createBtn">
+      👤 SKAPA 1V1 PARTY
+    </button>
+
+    <button class="mainbtn secondary" id="joinBtn">
+      🔗 JOina 1V1 PARTY
+    </button>
+
+    <div id="partyArea" class="hidden">
+
+      <input
+        id="partyCode"
+        class="partyInput"
+        inputmode="numeric"
+        maxlength="6"
+        placeholder="6-SIFFRIG KOD"
+      >
+
+      <div
+        id="partyStatus"
+        style="color:#9db0bf;font-size:13px;margin:10px 0"
+      ></div>
+
+      <button class="mainbtn" id="partyAction">
+        ANSLUT
+      </button>
+
+      <button class="mainbtn secondary" id="partyCancel">
+        TILLBAKA
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- RESULTAT -->
+
+<div class="overlay hidden" id="result">
+
+  <div class="card">
+
+    <h2 id="resultTitle"></h2>
+
+    <p id="resultText"></p>
+
+    <button class="mainbtn" id="again">
+      SPELA IGEN
+    </button>
+
+    <button class="mainbtn secondary" id="menuBtn">
+      MENY
+    </button>
+
+  </div>
+
+</div>
+
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+<script>
+
+const c=document.getElementById("c");
+const x=c.getContext("2d");
+
+let W,H,DPR;
+
+let mode="bot";
+let running=false;
+let last=0;
+let keys={};
+
+let peer=null;
+let conn=null;
+let isHost=false;
+let netReady=false;
+let partyCode="";
+
+let remoteInput={
+  f:0,
+  st:0,
+  boost:false,
+  jump:false,
+  drift:false
+};
+
+let sendTimer=0;
+
+let score=[0,0];
+let matchTime=120;
+
+let rp=+localStorage.getItem("ra_rp")||0;
+
+const ranks=[
+  ["BRONZE I",0],
+  ["BRONZE II",100],
+  ["BRONZE III",200],
+  ["SILVER I",350],
+  ["SILVER II",500],
+  ["SILVER III",700],
+  ["GOLD I",950],
+  ["GOLD II",1200],
+  ["GOLD III",1500],
+  ["PLATINUM I",1850],
+  ["PLATINUM II",2250],
+  ["PLATINUM III",2700],
+  ["DIAMOND",3200],
+  ["MASTER",3800],
+  ["CHAMPION",4500]
+];
+
+const world={
+  w:1500,
+  h:820,
+  goalW:150,
+  goalD:70
+};
+
+let car;
+let opponent;
+let ball;
+let particles=[];
+let shake=0;
+
+
+/* RESIZE */
+
+function resize(){
+
+  DPR=Math.min(devicePixelRatio||1,2);
+
+  W=innerWidth;
+  H=innerHeight;
+
+  c.width=W*DPR;
+  c.height=H*DPR;
+
+  c.style.width=W+"px";
+  c.style.height=H+"px";
+
+  x.setTransform(DPR,0,0,DPR,0,0);
+
+}
+
+addEventListener("resize",resize);
+resize();
+
+
+/* RANK */
+
+function rank(){
+
+  let r=ranks[0];
+
+  for(const z of ranks){
+
+    if(rp>=z[1])
+      r=z;
+
+  }
+
+  return r[0];
+
+}
+
+
+function showRanks(){
+
+  document.getElementById("ranks").innerHTML=
+
+    ranks.map(r=>`
+
+      <div class="r ${rank()===r[0]?"active":""}">
+        ${r[0]}
+      </div>
+
+    `).join("");
+
+}
+
+showRanks();
+
+
+/* CAR */
+
+function newCar(px,py,a,col){
+
+  return {
+
+    x:px,
+    y:py,
+    a,
+    vx:0,
+    vy:0,
+    r:25,
+
+    boost:100,
+
+    onGround:true,
+
+    jump:0,
+    air:0,
+
+    col
+
+  };
+
+}
+
+
+/* RESET */
+
+function resetMatch(){
+
+  score=[0,0];
+
+  matchTime=120;
+
+  particles=[];
+  shake=0;
+
+  car=newCar(
+    360,
+    410,
+    0,
+    "blue"
+  );
+
+  opponent=newCar(
+    1140,
+    410,
+    Math.PI,
+    "orange"
+  );
+
+  ball={
+    x:750,
+    y:410,
+    vx:0,
+    vy:0,
+    r:27,
+    spin:0
+  };
+
+  updateUI();
+
+}
+
+
+/* INPUT */
+
+function input(){
+
+  const f=
+    (keys.w||keys.ArrowUp?1:0)-
+    (keys.s||keys.ArrowDown?1:0);
+
+  const st=
+    (keys.d||keys.ArrowRight?1:0)-
+    (keys.a||keys.ArrowLeft?1:0);
+
+  return{
+
+    f,
+    st,
+
+    boost:
+      !!(keys.j||keys.J),
+
+    jump:
+      !!keys[" "],
+
+    drift:
+      !!keys.Shift
+
+  };
+
+}
+
+
+/* DRIVE */
+
+function applyInput(v,I,dt){
+
+  let steer=I.st||0;
+
+  let speed=Math.hypot(v.vx,v.vy);
+
+  let turn=
+    (1.9+Math.min(speed/180,1.5))*dt;
+
+  v.a+=
+    steer*
+    turn*
+    (v.onGround?.9:.45);
+
+  const thrust=850;
+
+  if(I.f>0){
+
+    v.vx+=
+      Math.cos(v.a)*
+      thrust*
+      dt;
+
+    v.vy+=
+      Math.sin(v.a)*
+      thrust*
+      dt;
+
+  }
+
+  if(I.f<0){
+
+    v.vx-=
+      Math.cos(v.a)*
+      thrust*
+      .55*
+      dt;
+
+    v.vy-=
+      Math.sin(v.a)*
+      thrust*
+      .55*
+      dt;
+
+  }
+
+  v.drift=
+    I.drift?1:0;
+
+
+  if(I.boost && v.boost>0){
+
+    v.vx+=
+      Math.cos(v.a)*
+      1450*
+      dt;
+
+    v.vy+=
+      Math.sin(v.a)*
+      1450*
+      dt;
+
+    v.boost-=35*dt;
+
+  }
+  else{
+
+    v.boost=
+      Math.min(
+        100,
+        v.boost+10*dt
+      );
+
+  }
+
+
+  if(I.jump && v.onGround){
+
+    v.onGround=false;
+    v.jump=1;
+    v.air=.55;
+
+  }
+
+}
+
+
+function drive(v,dt){
+
+  applyInput(
+    v,
+    input(),
+    dt
+  );
+
+}
+
+
+/* BOT */
+
+function botDrive(dt){
+
+  const dx=
+    ball.x-opponent.x;
+
+  const dy=
+    ball.y-opponent.y;
+
+  const desired=
+    Math.atan2(dy,dx);
+
+  let d=
+    desired-opponent.a;
+
+  while(d>Math.PI)
+    d-=Math.PI*2;
+
+  while(d<-Math.PI)
+    d+=Math.PI*2;
+
+
+  opponent.a+=
+    Math.max(
+      -2.3*dt,
+      Math.min(
+        d,
+        2.3*dt
+      )
+    );
+
+
+  opponent.vx+=
+    Math.cos(opponent.a)*
+    650*
+    dt;
+
+  opponent.vy+=
+    Math.sin(opponent.a)*
+    650*
+    dt;
+
+
+  if(
+    Math.hypot(dx,dy)<500 &&
+    opponent.boost>5
+  ){
+
+    opponent.vx+=
+      Math.cos(opponent.a)*
+      950*
+      dt;
+
+    opponent.vy+=
+      Math.sin(opponent.a)*
+      950*
+      dt;
+
+    opponent.boost-=28*dt;
+
+  }
+  else{
+
+    opponent.boost=
+      Math.min(
+        100,
+        opponent.boost+9*dt
+      );
+
+  }
+
+}
+
+
+/* PHYSICS */
+
+function physicsCar(v,dt){
+
+  const drag=
+    v.drift?.992:.975;
+
+  v.vx*=
+    Math.pow(
+      drag,
+      dt*60
+    );
+
+  v.vy*=
+    Math.pow(
+      drag,
+      dt*60
+    );
+
+
+  const max=
+    570;
+
+  const sp=
+    Math.hypot(
+      v.vx,
+      v.vy
+    );
+
+  if(sp>max){
+
+    v.vx*=max/sp;
+    v.vy*=max/sp;
+
+  }
+
+
+  v.x+=v.vx*dt;
+  v.y+=v.vy*dt;
+
+
+  if(!v.onGround){
+
+    v.air-=dt;
+
+    if(v.air<=0){
+
+      v.onGround=true;
+      v.air=0;
+      shake=.1;
+
+    }
+
+  }
+
+
+  const margin=45;
+
+
+  if(v.x<margin){
+
+    v.x=margin;
+    v.vx=Math.abs(v.vx)*.45;
+
+  }
+
+
+  if(v.x>world.w-margin){
+
+    v.x=world.w-margin;
+    v.vx=-Math.abs(v.vx)*.45;
+
+  }
+
+
+  if(v.y<margin){
+
+    v.y=margin;
+    v.vy=Math.abs(v.vy)*.45;
+
+  }
+
+
+  if(v.y>world.h-margin){
+
+    v.y=world.h-margin;
+    v.vy=-Math.abs(v.vy)*.45;
+
+  }
+
+}
+
+
+/* CAR BALL */
+
+function carBall(v){
+
+  let dx=
+    ball.x-v.x;
+
+  let dy=
+    ball.y-v.y;
+
+  let d=
+    Math.hypot(dx,dy);
+
+  let min=
+    v.r+ball.r;
+
+
+  if(d<min){
+
+    let nx=
+      dx/(d||1);
+
+    let ny=
+      dy/(d||1);
+
+    let push=
+      min-d;
+
+    ball.x+=nx*push;
+    ball.y+=ny*push;
+
+
+    let rel=
+      (ball.vx-v.vx)*nx+
+      (ball.vy-v.vy)*ny;
+
+
+    let impulse=
+      Math.max(0,380-rel)+
+      Math.hypot(v.vx,v.vy)*.35;
+
+
+    ball.vx+=
+      nx*impulse;
+
+    ball.vy+=
+      ny*impulse;
+
+
+    ball.vx*=.98;
+    ball.vy*=.98;
+
+    shake=.12;
+
+  }
+
+}
+
+
+/* BALL */
+
+function ballPhysics(dt){
+
+  ball.vx*=
+    Math.pow(.994,dt*60);
+
+  ball.vy*=
+    Math.pow(.994,dt*60);
+
+
+  ball.x+=ball.vx*dt;
+  ball.y+=ball.vy*dt;
+
+
+  ball.spin+=
+    Math.hypot(
+      ball.vx,
+      ball.vy
+    )*
+    dt*
+    .03;
+
+
+  const top=65;
+  const bottom=world.h-65;
+
+
+  if(ball.y<top+ball.r){
+
+    ball.y=top+ball.r;
+    ball.vy=Math.abs(ball.vy)*.8;
+
+  }
+
+
+  if(ball.y>bottom-ball.r){
+
+    ball.y=bottom-ball.r;
+    ball.vy=-Math.abs(ball.vy)*.8;
+
+  }
+
+
+  if(ball.x<ball.r){
+
+    if(
+      ball.y>
+      world.h/2-world.goalW/2 &&
+      ball.y<
+      world.h/2+world.goalW/2
+    ){
+
+      goal(1);
+
+    }
+    else{
+
+      ball.x=ball.r;
+      ball.vx=
+        Math.abs(ball.vx)*.82;
+
+    }
+
+  }
+
+
+  if(ball.x>world.w-ball.r){
+
+    if(
+      ball.y>
+      world.h/2-world.goalW/2 &&
+      ball.y<
+      world.h/2+world.goalW/2
+    ){
+
+      goal(0);
+
+    }
+    else{
+
+      ball.x=
+        world.w-ball.r;
+
+      ball.vx=
+        -Math.abs(ball.vx)*.82;
+
+    }
+
+  }
+
+}
+
+
+/* GOAL */
+
+function goal(team){
+
+  if(!running)return;
+
+
+  score[team]++;
+
+  showToast(
+    team===0?
+    "⚽ MÅL!":
+    "😬 MOTSTÅNDAREN GÖR MÅL"
+  );
+
+
+  shake=.5;
+
+
+  ball.x=750;
+  ball.y=410;
+
+  ball.vx=
+    team===0?-120:120;
+
+  ball.vy=
+    (Math.random()-.5)*100;
+
+
+  car.x=360;
+  car.y=410;
+
+  car.vx=0;
+  car.vy=0;
+
+
+  opponent.x=1140;
+  opponent.y=410;
+
+  opponent.vx=0;
+  opponent.vy=0;
+
+
+  updateUI();
+
+}
+
+
+/* GAME UPDATE */
+
+function update(dt){
+
+  if(!running)
+    return;
+
+
+  matchTime-=dt;
+
+
+  if(matchTime<=0){
+
+    matchTime=0;
+    finish();
+    return;
+
+  }
+
+
+  if(mode==="bot"){
+
+    drive(car,dt);
+    botDrive(dt);
+
+  }
+  else{
+
+    if(isHost){
+
+      drive(car,dt);
+      applyInput(
+        opponent,
+        remoteInput,
+        dt
+      );
+
+    }
+
+  }
+
+
+  physicsCar(car,dt);
+  physicsCar(opponent,dt);
+
+
+  carBall(car);
+  carBall(opponent);
+
+
+  ballPhysics(dt);
+
+
+  particles.forEach(p=>{
+
+    p.x-=
+      Math.cos(p.a)*
+      90*
+      dt;
+
+    p.y-=
+      Math.sin(p.a)*
+      90*
+      dt;
+
+    p.life-=dt;
+
+  });
+
+
+  particles=
+    particles.filter(
+      p=>p.life>0
+    );
+
+
+  if(shake>0)
+    shake-=dt;
+
+
+  updateUI();
+
+
+  if(
+    mode==="online" &&
+    isHost
+  ){
+
+    sendTimer+=dt;
+
+    if(sendTimer>.05){
+
+      sendTimer=0;
+      sendState();
+
+    }
+
+  }
+
+
+  if(
+    mode==="online" &&
+    !isHost
+  ){
+
+    sendTimer+=dt;
+
+    if(sendTimer>.05){
+
+      sendTimer=0;
+      sendInput();
+
+    }
+
+  }
+
+}
+
+
+/* RESULT */
+
+function finish(){
+
+  running=false;
+
+
+  let diff=
+    score[0]-score[1];
+
+
+  let delta=
+    diff>0?
+    25+score[0]*4:
+    diff<0?
+    -18:
+    5;
+
+
+  if(mode==="bot" || mode==="online"){
+
+    rp=
+      Math.max(
+        0,
+        rp+delta
+      );
+
+    localStorage.setItem(
+      "ra_rp",
+      rp
+    );
+
+  }
+
+
+  showRanks();
+
+
+  let title=
+    diff>0?
+    "🏆 SEGER!":
+    diff<0?
+    "💥 FÖRLUST":
+    "🤝 OAVGJORT";
+
+
+  let text=
+    `${score[0]} – ${score[1]}   •   ${
+      delta>=0?"+":""
+    }${delta} RP   •   ${rank()}`;
+
+
+  document.getElementById(
+    "resultTitle"
+  ).textContent=title;
+
+
+  document.getElementById(
+    "resultText"
+  ).textContent=text;
+
+
+  document.getElementById(
+    "result"
+  ).classList.remove("hidden");
+
+
+  if(
+    mode==="online" &&
+    isHost &&
+    conn
+  ){
+
+    try{
+
+      conn.send({
+
+        type:"result",
+        score,
+        title,
+        text
+
+      });
+
+    }
+    catch(e){}
+
+  }
+
+}
+
+
+/* UI */
+
+function updateUI(){
+
+  document.getElementById(
+    "us"
+  ).textContent=score[0];
+
+
+  document.getElementById(
+    "them"
+  ).textContent=score[1];
+
+
+  document.getElementById(
+    "rp"
+  ).textContent=rp;
+
+
+  document.getElementById(
+    "rank"
+  ).textContent=rank();
+
+
+  document.getElementById(
+    "boosttxt"
+  ).textContent=
+    Math.round(
+      car?.boost||100
+    );
+
+
+  document.getElementById(
+    "boostbar"
+  ).style.width=
+    (car?.boost||100)+"%";
+
+
+  document.getElementById(
+    "time"
+  ).textContent=
+    `${Math.floor(matchTime/60)}:${
+      String(
+        Math.floor(matchTime%60)
+      ).padStart(2,"0")
+    }`;
+
+}
+
+
+/* TOAST */
+
+function showToast(t){
+
+  const e=
+    document.getElementById("toast");
+
+  e.textContent=t;
+
+  e.classList.add("show");
+
+  setTimeout(
+    ()=>e.classList.remove("show"),
+    850
+  );
+
+}
+
+
+/* CAMERA */
+
+function screen(wx,wy){
+
+  let s=
+    Math.min(
+      W/world.w,
+      H/world.h
+    )*.93;
+
+
+  return{
+
+    x:
+      (W-world.w*s)/2+
+      wx*s,
+
+    y:
+      (H-world.h*s)/2+
+      wy*s,
+
+    s
+
+  };
+
+}
+
+
+/* DRAW */
+
+function draw(){
+
+  x.clearRect(
+    0,
+    0,
+    W,
+    H
+  );
+
+
+  let s=
+    Math.min(
+      W/world.w,
+      H/world.h
+    )*.93;
+
+
+  const bg=
+    x.createLinearGradient(
+      0,0,0,H
+    );
+
+
+  bg.addColorStop(
+    0,
+    "#091827"
+  );
+
+  bg.addColorStop(
+    1,
+    "#030a11"
+  );
+
+
+  x.fillStyle=bg;
+
+  x.fillRect(
+    0,
+    0,
+    W,
+    H
+  );
+
+
+  const off=
+    shake>0?
+    (Math.random()-.5)*
+    shake*20:
+    0;
+
+
+  x.save();
+
+  x.translate(
+    off,
+    off
+  );
+
+
+  let q=
+    screen(0,0);
+
+
+  x.fillStyle=
+    "#0d2532";
+
+
+  x.fillRect(
+    q.x,
+    q.y,
+    world.w*s,
+    world.h*s
+  );
+
+
+  for(let i=0;i<10;i++){
+
+    x.fillStyle=
+      i%2?
+      "#123747":
+      "#103344";
+
+
+    x.fillRect(
+      q.x+
+      i*world.w*s/10,
+      q.y,
+      world.w*s/10,
+      world.h*s
+    );
+
+  }
+
+
+  x.strokeStyle=
+    "#6c9aaa";
+
+  x.lineWidth=5;
+
+  x.strokeRect(
+    q.x,
+    q.y,
+    world.w*s,
+    world.h*s
+  );
+
+
+  x.strokeStyle=
+    "#ffffff35";
+
+  x.lineWidth=3;
+
+
+  x.beginPath();
+
+  x.moveTo(
+    W/2,
+    q.y
+  );
+
+  x.lineTo(
+    W/2,
+    q.y+
+    world.h*s
+  );
+
+  x.stroke();
+
+
+  x.beginPath();
+
+  x.arc(
+    W/2,
+    H/2,
+    100*s,
+    0,
+    Math.PI*2
+  );
+
+  x.stroke();
+
+
+  /* GOALS */
+
+  x.fillStyle=
+    "#07131d";
+
+
+  x.fillRect(
+    q.x-2,
+    q.y+
+    (world.h/2-world.goalW/2)*s,
+    world.goalD*s,
+    world.goalW*s
+  );
+
+
+  x.fillRect(
+    q.x+
+    world.w*s-
+    world.goalD*s,
+    q.y+
+    (world.h/2-world.goalW/2)*s,
+    world.goalD*s,
+    world.goalW*s
+  );
+
+
+  x.strokeStyle=
+    "#48c9ff";
+
+  x.lineWidth=4;
+
+  x.strokeRect(
+    q.x-1,
+    q.y+
+    (world.h/2-world.goalW/2)*s,
+    world.goalD*s,
+    world.goalW*s
+  );
+
+
+  x.strokeStyle=
+    "#ff9a42";
+
+
+  x.strokeRect(
+    q.x+
+    world.w*s-
+    world.goalD*s,
+    q.y+
+    (world.h/2-world.goalW/2)*s,
+    world.goalD*s,
+    world.goalW*s
+  );
+
+
+  drawCar(car);
+  drawCar(opponent);
+  drawBall();
+
+
+  particles.forEach(p=>{
+
+    let z=
+      screen(
+        p.x,
+        p.y
+      );
+
+
+    x.fillStyle=
+      `rgba(76,215,255,${p.life})`;
+
+
+    x.beginPath();
+
+    x.arc(
+      z.x,
+      z.y,
+      p.r*z.s,
+      0,
+      Math.PI*2
+    );
+
+    x.fill();
+
+  });
+
+
+  x.restore();
+
+}
+
+
+/* DRAW CAR */
+
+function drawCar(v){
+
+  let z=
+    screen(
+      v.x,
+      v.y
+    );
+
+
+  let s=z.s;
+
+
+  x.save();
+
+
+  x.translate(
+    z.x,
+    z.y
+  );
+
+
+  x.rotate(v.a);
+
+
+  x.fillStyle="#0008";
+
+
+  x.beginPath();
+
+  x.ellipse(
+    5,
+    10,
+    31*s,
+    18*s,
+    0,
+    0,
+    Math.PI*2
+  );
+
+  x.fill();
+
+
+  x.fillStyle=
+    v.col==="blue"?
+    "#248cc2":
+    "#d86a2c";
+
+
+  x.beginPath();
+
+  x.roundRect(
+    -27*s,
+    -18*s,
+    54*s,
+    36*s,
+    9*s
+  );
+
+  x.fill();
+
+
+  x.fillStyle="#091723";
+
+
+  x.beginPath();
+
+  x.roundRect(
+    -10*s,
+    -13*s,
+    22*s,
+    26*s,
+    6*s
+  );
+
+  x.fill();
+
+
+  x.fillStyle="#d9f6ff";
+
+  x.fillRect(
+    7*s,
+    -8*s,
+    12*s,
+    5*s
+  );
+
+  x.fillRect(
+    7*s,
+    3*s,
+    12*s,
+    5*s
+  );
+
+
+  x.fillStyle="#111";
+
+  x.fillRect(
+    -22*s,
+    -22*s,
+    12*s,
+    7*s
+  );
+
+  x.fillRect(
+    -22*s,
+    15*s,
+    12*s,
+    7*s
+  );
+
+
+  x.fillStyle="#62e6ff";
+
+
+  x.beginPath();
+
+  x.moveTo(
+    -27*s,
+    -9*s
+  );
+
+  x.lineTo(
+    -43*s,
+    0
+  );
+
+  x.lineTo(
+    -27*s,
+    9*s
+  );
+
+  x.fill();
+
+
+  x.restore();
+
+}
+
+
+/* BALL */
+
+function drawBall(){
+
+  let z=
+    screen(
+      ball.x,
+      ball.y
+    );
+
+
+  let s=z.s;
+
+
+  x.save();
+
+  x.translate(
+    z.x,
+    z.y
+  );
+
+
+  x.rotate(
+    ball.spin
+  );
+
+
+  x.fillStyle="#0007";
+
+
+  x.beginPath();
+
+  x.ellipse(
+    5,
+    8,
+    ball.r*s,
+    ball.r*s*.65,
+    0,
+    0,
+    Math.PI*2
+  );
+
+  x.fill();
+
+
+  let g=
+    x.createRadialGradient(
+      -8*s,
+      -9*s,
+      2*s,
+      0,
+      0,
+      ball.r*s
+    );
+
+
+  g.addColorStop(
+    0,
+    "#fff"
+  );
+
+  g.addColorStop(
+    .7,
+    "#dce7eb"
+  );
+
+  g.addColorStop(
+    1,
+    "#9caeb8"
+  );
+
+
+  x.fillStyle=g;
+
+
+  x.beginPath();
+
+  x.arc(
+    0,
+    0,
+    ball.r*s,
+    0,
+    Math.PI*2
+  );
+
+  x.fill();
+
+
+  x.strokeStyle=
+    "#536873";
+
+  x.lineWidth=2;
+
+  x.stroke();
+
+
+  x.fillStyle=
+    "#2c414b";
+
+
+  for(let i=0;i<5;i++){
+
+    let a=
+      i*Math.PI*2/5;
+
+
+    x.beginPath();
+
+    x.arc(
+      Math.cos(a)*10*s,
+      Math.sin(a)*10*s,
+      4*s,
+      0,
+      Math.PI*2
+    );
+
+    x.fill();
+
+  }
+
+
+  x.restore();
+
+}
+
+
+/* ONLINE */
+
+function randomCode(){
+
+  return String(
+    Math.floor(
+      100000+
+      Math.random()*900000
+    )
+  );
+
+}
+
+
+function setPartyStatus(t){
+
+  document.getElementById(
+    "partyStatus"
+  ).textContent=t;
+
+}
+
+
+function createParty(){
+
+  closePeer();
+
+  mode="online";
+  isHost=true;
+
+  partyCode=randomCode();
+
+  peer=
+    new Peer(
+      "rocket-arena-"+partyCode
+    );
+
+
+  document.getElementById(
+    "partyArea"
+  ).classList.remove("hidden");
+
+
+  document.getElementById(
+    "partyCode"
+  ).value=partyCode;
+
+
+  document.getElementById(
+    "partyCode"
+  ).readOnly=true;
+
+
+  document.getElementById(
+    "partyAction"
+  ).classList.add("hidden");
+
+
+  setPartyStatus(
+    "Din partykod: "+
+    partyCode+
+    " — vänta på motståndaren..."
+  );
+
+
+  peer.on(
+    "open",
+    ()=>{}
+  );
+
+
+  peer.on(
+    "connection",
+    c=>{
+
+      if(conn){
+
+        c.close();
+        return;
+
+      }
+
+      conn=c;
+
+      setupConnection();
+
+    }
+  );
+
+
+  peer.on(
+    "error",
+    ()=>{
+
+      setPartyStatus(
+        "Kunde inte skapa party."
+      );
+
+    }
+  );
+
+}
+
+
+function joinParty(){
+
+  closePeer();
+
+  mode="online";
+  isHost=false;
+
+
+  document.getElementById(
+    "partyArea"
+  ).classList.remove("hidden");
+
+
+  document.getElementById(
+    "partyCode"
+  ).value="";
+
+
+  document.getElementById(
+    "partyCode"
+  ).readOnly=false;
+
+
+  document.getElementById(
+    "partyAction"
+  ).classList.remove("hidden");
+
+
+  setPartyStatus(
+    "Skriv in motståndarens 6-siffriga kod."
+  );
+
+}
+
+
+function connectToParty(){
+
+  const code=
+    document.getElementById(
+      "partyCode"
+    ).value
+    .replace(/\D/g,"")
+    .slice(0,6);
+
+
+  if(code.length!==6){
+
+    setPartyStatus(
+      "Koden måste vara 6 siffror."
+    );
+
+    return;
+
+  }
+
+
+  partyCode=code;
+
+
+  peer=new Peer();
+
+
+  peer.on(
+    "open",
+    ()=>{
+
+      conn=
+        peer.connect(
+          "rocket-arena-"+partyCode,
+          {reliable:true}
+        );
+
+
+      setupConnection();
+
+    }
+  );
+
+
+  peer.on(
+    "error",
+    ()=>{
+
+      setPartyStatus(
+        "Kunde inte hitta partyn."
+      );
+
+    }
+  );
+
+}
+
+
+function setupConnection(){
+
+  if(!conn)return;
+
+
+  conn.on(
+    "open",
+    ()=>{
+
+      netReady=true;
+
+      document.getElementById(
+        "menu"
+      ).classList.add("hidden");
+
+
+      resetMatch();
+
+      running=true;
+
+
+      if(isHost)
+        sendState();
+
+    }
+  );
+
+
+  conn.on(
+    "data",
+    data=>{
+
+      if(isHost){
+
+        if(data.type==="input"){
+
+          remoteInput=
+            data.input||
+            remoteInput;
+
+        }
+
+      }
+      else{
+
+        if(data.type==="state"){
+
+          score=data.score;
+          matchTime=data.time;
+
+          Object.assign(
+            car,
+            data.car
+          );
+
+          Object.assign(
+            opponent,
+            data.opponent
+          );
+
+          Object.assign(
+            ball,
+            data.ball
+          );
+
+          running=true;
+
+        }
+
+
+        if(data.type==="result"){
+
+          score=data.score;
+
+          running=false;
+
+
+          document.getElementById(
+            "resultTitle"
+          ).textContent=data.title;
+
+
+          document.getElementById(
+            "resultText"
+          ).textContent=data.text;
+
+
+          document.getElementById(
+            "result"
+          ).classList.remove("hidden");
+
+        }
+
+      }
+
+    }
+  );
+
+
+  conn.on(
+    "close",
+    ()=>{
+
+      netReady=false;
+      running=false;
+
+      showToast(
+        "Motståndaren lämnade partyn"
+      );
+
+    }
+  );
+
+}
+
+
+function sendInput(){
+
+  if(
+    !conn||
+    !netReady
+  )
+    return;
+
+
+  try{
+
+    conn.send({
+
+      type:"input",
+
+      input:input()
+
+    });
+
+  }
+  catch(e){}
+
+}
+
+
+function cleanCar(v){
+
+  return{
+
+    x:v.x,
+    y:v.y,
+    a:v.a,
+    vx:v.vx,
+    vy:v.vy,
+    boost:v.boost,
+    onGround:v.onGround,
+    jump:v.jump,
+    air:v.air,
+    drift:v.drift,
+    col:v.col
+
+  };
+
+}
+
+
+function sendState(){
+
+  if(
+    !conn||
+    !netReady
+  )
+    return;
+
+
+  try{
+
+    conn.send({
+
+      type:"state",
+
+      score,
+      time:matchTime,
+
+      car:cleanCar(car),
+
+      opponent:
+        cleanCar(opponent),
+
+      ball:{
+
+        x:ball.x,
+        y:ball.y,
+        vx:ball.vx,
+        vy:ball.vy,
+        r:ball.r,
+        spin:ball.spin
+
+      }
+
+    });
+
+  }
+  catch(e){}
+
+}
+
+
+function closePeer(){
+
+  if(conn){
+
+    try{
+      conn.close();
+    }
+    catch(e){}
+
+  }
+
+
+  if(peer){
+
+    try{
+      peer.destroy();
+    }
+    catch(e){}
+
+  }
+
+
+  conn=null;
+  peer=null;
+  netReady=false;
+
+}
+
+
+/* KEYBOARD */
+
+addEventListener(
+  "keydown",
+  e=>{
+
+    keys[e.key]=true;
+
+
+    if(
+      e.key==="r"||
+      e.key==="R"
+    ){
+
+      resetMatch();
+
+      running=true;
+
+    }
+
+
+    if(
+      [
+        " ",
+        "ArrowUp",
+        "ArrowDown",
+        "ArrowLeft",
+        "ArrowRight"
+      ].includes(e.key)
+    ){
+
+      e.preventDefault();
+
+    }
+
+  }
+);
+
+
+addEventListener(
+  "keyup",
+  e=>{
+
+    keys[e.key]=false;
+
+  }
+);
+
+
+/* BUTTONS */
+
+document.getElementById(
+  "botBtn"
+).onclick=()=>{
+
+  closePeer();
+
+  mode="bot";
+
+  document.getElementById(
+    "menu"
+  ).classList.add("hidden");
+
+  resetMatch();
+
+  running=true;
+
+};
+
+
+document.getElementById(
+  "createBtn"
+).onclick=()=>{
+
+  createParty();
+
+};
+
+
+document.getElementById(
+  "joinBtn"
+).onclick=()=>{
+
+  joinParty();
+
+};
+
+
+document.getElementById(
+  "partyAction"
+).onclick=()=>{
+
+  connectToParty();
+
+};
+
+
+document.getElementById(
+  "partyCancel"
+).onclick=()=>{
+
+  closePeer();
+
+  document.getElementById(
+    "partyArea"
+  ).classList.add("hidden");
+
+};
+
+
+document.getElementById(
+  "again"
+).onclick=()=>{
+
+  document.getElementById(
+    "result"
+  ).classList.add("hidden");
+
+  resetMatch();
+
+  running=true;
+
+};
+
+
+document.getElementById(
+  "menuBtn"
+).onclick=()=>{
+
+  closePeer();
+
+  running=false;
+
+  document.getElementById(
+    "result"
+  ).classList.add("hidden");
+
+  document.getElementById(
+    "menu"
+  ).classList.remove("hidden");
+
+  document.getElementById(
+    "partyArea"
+  ).classList.add("hidden");
+
+  showRanks();
+
+};
+
+
+/* LOOP */
+
+function loop(t){
+
+  let dt=
+    Math.min(
+      .035,
+      (t-last)/1000||0
+    );
+
+  last=t;
+
+  update(dt);
+
+  draw();
+
+  requestAnimationFrame(loop);
+
+}
+
+
+resetMatch();
+
+requestAnimationFrame(loop);
+
+</script>
+
+</body>
+</html>
+```
